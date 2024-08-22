@@ -5,18 +5,19 @@ use std::io::Result;
 use std::io::{Read, Write};
 use std::net::{Shutdown, TcpStream};
 
+#[derive(Debug)]
 pub struct Elos {
     stream: TcpStream,
     subscribtions: Vec<u64>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Event {
-pub    date: [u32; 2],
-pub    messageCode: Option<u32>,
-pub    classification: Option<u64>,
-pub    severity: Option<u32>,
-pub    payload: Option<String>,
+    pub date: [u32; 2],
+    pub messageCode: Option<u32>,
+    pub classification: Option<u64>,
+    pub severity: Option<u32>,
+    pub payload: Option<String>,
 }
 
 pub struct Message {

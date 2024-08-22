@@ -2,9 +2,14 @@
 name = "elmo"
 version = "0.1.0"
 edition = "2021"
+authors = ["Wolfgang Gehrhardt <gehwolf@freenet.de>"]
+license = "MIT"
 
 [dependencies]
-ratatui = "0.28.0"
 byteorder = "1.5.0"
+crossterm = { version = "0.27.0", features = ["event-stream"] }
+futures = "0.3.30"
+ratatui = "0.28.0"
 serde = { version = "1.0.207", features = ["derive"] }
 serde_json = "1.0.124"
+tokio = { version = "1.35.1", features = ["full"] }
