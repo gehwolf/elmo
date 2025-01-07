@@ -1,5 +1,9 @@
 use ratatui::{
-    layout::Alignment, style::{Color, Style, Stylize}, text::Line, widgets::{Block, BorderType, Paragraph}, Frame
+    layout::{Alignment, Constraint},
+    style::{Color, Style, Stylize},
+    text::Line,
+    widgets::{Block, BorderType, Paragraph, Row, Table},
+    Frame,
 };
 
 use crate::app::App;
@@ -26,7 +30,7 @@ pub fn render(app: &mut App, frame: &mut Frame) {
         )
         .style(Style::default().fg(Color::Cyan).bg(Color::Black))
         .centered(),
-        frame.  area(),
+        frame.area(),
     );
 
     let mut events_text: Vec<Line> = vec![];
@@ -37,4 +41,5 @@ pub fn render(app: &mut App, frame: &mut Frame) {
         ]));
     }
     frame.render_widget(Paragraph::new(events_text).white().on_blue(), frame.area());
+    app.event_view.render(&mut app, &mut frame);
 }

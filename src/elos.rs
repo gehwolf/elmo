@@ -11,7 +11,7 @@ pub struct Elos {
     subscribtions: Vec<u64>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Event {
     pub date: [u32; 2],
     pub messageCode: Option<u32>,
@@ -20,11 +20,12 @@ pub struct Event {
     pub payload: Option<String>,
 }
 
+#[derive(Default)]
 pub struct Message {
     pub version: u8,
     pub command: u8,
     pub length: u16,
-    pub data: Vec<u8>,
+   pub data: Vec<u8>,
 }
 
 #[derive(Deserialize)]
@@ -157,12 +158,7 @@ impl Elos {
 
 impl Message {
     pub fn new() -> Message {
-        Message {
-            version: 0,
-            command: 0,
-            length: 0,
-            data: Vec::new(),
-        }
+        Self::default()
     }
 
     pub fn serialize(&self, buffer: &mut impl Write) -> Result<()> {

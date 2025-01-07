@@ -1,4 +1,5 @@
 use crate::elos::{Elos, Event};
+use crate::widgets::event_view::EventView;
 use std::error;
 
 pub type AppResult<T> = std::result::Result<T, Box<dyn error::Error>>;
@@ -9,6 +10,7 @@ pub struct App {
     pub counter: usize,
     pub elos: Option<Elos>,
     pub events: Vec<Event>,
+    pub event_view: EventView,
 }
 
 impl Default for App {
@@ -18,15 +20,17 @@ impl Default for App {
             counter: 0,
             elos: None,
             events: vec![],
+            event_view: EventView::default(),
         }
     }
 }
 
 impl App {
     pub fn new() -> Self {
-        let mut app = Self::default();
-        app.elos = Elos::connect().map_or_else(|_| None, |elos| Some(elos));
-        app
+        App {
+            elos:Elos::connect().ok(),
+            ..Default::default()
+        }
     }
 
     pub fn tick(&self) {}
