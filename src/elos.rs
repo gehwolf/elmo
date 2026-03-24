@@ -1,6 +1,7 @@
 use byteorder::{NetworkEndian, ReadBytesExt};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use std::fmt;
 use std::io::Result;
 use std::io::{Read, Write};
 use std::net::{Shutdown, TcpStream};
@@ -12,11 +13,11 @@ pub struct Elos {
 
 #[derive(Serialize, Deserialize)]
 pub struct Event {
-pub    date: [u32; 2],
-pub    messageCode: Option<u32>,
-pub    classification: Option<u64>,
-pub    severity: Option<u32>,
-pub    payload: Option<String>,
+    pub date: [u32; 2],
+    pub messageCode: Option<u32>,
+    pub classification: Option<u64>,
+    pub severity: Option<u32>,
+    pub payload: Option<String>,
 }
 
 pub struct Message {
@@ -41,6 +42,20 @@ struct SubscribeResponse {
 struct ReadEventQueueResponse {
     error: Option<String>,
     eventArray: Vec<Event>,
+}
+
+impl fmt::Display for Event {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{{date: {:?}, messageCode: {:?}, classification: {:?}, severity: {:?}, payload: {:?} }}",
+            self.date,
+            self.messageCode,
+            self.classification,
+            self.severity,
+            self.payload,
+        )
+    }
 }
 
 impl Elos {
@@ -151,6 +166,10 @@ impl Elos {
                 }
             })?
         })?
+    }
+
+    pub fn subscribtions(&self) -> &Vec<u64> {
+        &self.subscribtions
     }
 }
 
