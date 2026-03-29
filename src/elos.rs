@@ -91,6 +91,7 @@ impl Elos {
         self.send(&message)?;
         self.receive().map(|response| {
             let json_string: String = String::from_utf8(response.data).unwrap().to_owned();
+            #[cfg(elos_debug)]
             println!("subscribe: '{}'", json_string);
             serde_json::from_str(&json_string).map(|subscribe_response: SubscribeResponse| {
                 match subscribe_response.error {
@@ -121,6 +122,7 @@ impl Elos {
         self.send(&message)?;
         self.receive().map(|response| {
             let json_string: String = String::from_utf8(response.data).unwrap().to_owned();
+            #[cfg(elos_debug)]
             println!("read event queue : {}", json_string);
             serde_json::from_str(&json_string).map(
                 |read_event_queue_response: ReadEventQueueResponse| match read_event_queue_response
@@ -155,6 +157,7 @@ impl Elos {
         self.send(&message)?;
         self.receive().map(|response| {
             let json_string: String = String::from_utf8(response.data).unwrap().to_owned();
+            #[cfg(elos_debug)]
             println!("read event queue : {}", json_string);
             serde_json::from_str(&json_string).map(|publish_response: PublishResponse| {
                 match publish_response.error {
@@ -185,6 +188,7 @@ impl Message {
 
     pub fn serialize(&self, buffer: &mut impl Write) -> Result<()> {
         let length = (self.data.len() as u16).to_be();
+        #[cfg(elos_debug)]
         println!("msglength {:04x}", length);
         let header = vec![
             self.version,
@@ -201,6 +205,7 @@ impl Message {
         let version = buffer.read_u8()?;
         let command = buffer.read_u8()?;
         let length = buffer.read_u16::<NetworkEndian>()?;
+        #[cfg(elos_debug)]
         println!(
             "receive version: {:x}, command: {:x}, length:{:x}",
             version,

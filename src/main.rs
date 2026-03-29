@@ -29,12 +29,12 @@ fn run(terminal: &mut DefaultTerminal) -> () {
         data: vec![],
     });
     match result {
-        Ok(_) => println!("message send"),
+        Ok(_) => (),
         Err(e) => panic!("failed to send: {}", e),
     }
 
     match elos.receive() {
-        Ok(msg) => println!("response : {}", String::from_utf8(msg.data).unwrap()),
+        Ok(msg) => (),
         Err(e) => panic!("failed receive: {}", e),
     }
 
