@@ -1,17 +1,20 @@
 mod elos;
+use ratatui::crossterm::event::{self, KeyCode};
+use ratatui::layout::{Constraint, Rect};
+use ratatui::style::Style;
+use ratatui::text::Span;
+use ratatui::widgets::{List, Paragraph, Row, Table};
 use ratatui::DefaultTerminal;
 use ratatui::Frame;
-use ratatui::widgets::Paragraph;
-use signal_hook::{consts::SIGQUIT, consts::SIGTERM, iterator::Signals};
-use std::{thread, time::Duration};
+use std::time::Duration;
+use chrono::{DateTime, NaiveDateTime, Utc};
 
 fn main() {
-    let _ = ratatui::run(run);//context("ratatui failed");
-
-    println!("Hello, world!");
+    let _ = ratatui::run(run);
 }
 
 fn run(terminal: &mut DefaultTerminal) -> () {
+    let mut rows = vec![];
     let mut elos = match elos::Elos::connect() {
         Ok(elos) => elos,
         Err(e) => {
@@ -40,26 +43,20 @@ fn run(terminal: &mut DefaultTerminal) -> () {
         Err(e) => panic!("failed to subscribe: {}", e),
     }
 
-    let mut signals = Signals::new(&[SIGTERM, SIGQUIT]).unwrap();
-    let mut quit = false;
     loop {
-        elos.read_event_queue(*elos.subscribtions().get(0).unwrap())
-            .map(|events| {
-                events.iter().for_each(|ev| println!("event: {}", ev));
-            })
-            .unwrap();
+        let _ = terminal.draw(|frame| render(frame, &mut elos, &mut rows));
 
-        terminal.draw(render);
-        for signal in signals.pending() {
-            match signal {
-                SIGQUIT | SIGTERM => quit = true,
-                _ => (),
+        if event::poll(Duration::from_millis(250)).unwrap() {
+            match event::read().unwrap() {
+                event::Event::Key(event) => {
+                    if event.code == KeyCode::Char('q') {
+                        break;
+                    }
+                }
+                event => {
+                    println!("event {:?}", event)
+                }
             }
-        }
-
-        match quit {
-            false => thread::sleep(Duration::from_millis(500)),
-            true => break,
         }
     }
     let _ = elos.disconnect();
@@ -67,8 +64,64 @@ fn run(terminal: &mut DefaultTerminal) -> () {
     ()
 }
 
-fn render(frame: &mut Frame) {
-        let greeting = Paragraph::new("Hello World! (press 'q' to quit)");
-    frame.render_widget(greeting, frame.area());
+fn render(frame: &mut Frame, elos: &mut elos::Elos, rows: &mut Vec<Row>) {
+    let header = Row::new(["Severity", "Date", "Source", "payload"]).style(Style::new().bold());
 
+    elos.read_event_queue(*elos.subscribtions().get(0).unwrap())
+        .map(|events| {
+            events.iter().for_each(|ev| {
+                rows.push(Row::new([
+                    format_severity( ev.severity),
+                    format!("{:?}", ev.messageCode),
+                    format_timespec(ev.date),
+                    format!("{:?}", ev.payload),
+                ]))
+            });
+        })
+        .unwrap();
+
+    let footer = Row::new([format!("Events {}", rows.len()), "Filtered".to_string()]);
+    let widths = [
+        Constraint::Percentage(10),
+        Constraint::Percentage(20),
+        Constraint::Percentage(20),
+        Constraint::Percentage(50),
+    ];
+    let mut rows_sorted = rows.clone();
+    rows_sorted.reverse();
+
+    let table = Table::new(rows_sorted, widths)
+        .header(header)
+        .footer(footer);
+
+    frame.render_widget(
+        table,
+        Rect {
+            x: frame.area().x,
+            y: frame.area().y,
+            width: frame.area().width,
+            height: frame.area().height,
+        },
+    );
 }
+
+fn format_severity(severity: Option<u32>) -> String {
+    match severity {
+        Some(1) => "☠".to_string(),
+        Some(2) => "❌".to_string(),
+        Some(3) => "⚠️".to_string(),
+        Some(4) => "💡".to_string(),
+        Some(5) => "🐛".to_string(),
+        Some(6) => "🗣".to_string(),
+        _ => "".to_string(),
+    }
+}
+
+
+fn format_timespec(ts: [u32;2]) -> String {
+    let naive = NaiveDateTime::from_timestamp_opt(ts[0]as i64, ts[1] as u32)
+        .expect("invalid timestamp");
+    let dt: DateTime<Utc> = DateTime::from_utc(naive, Utc);
+    dt.format("%Y-%m-%d %H:%M:%S%.f UTC").to_string()
+}
+
