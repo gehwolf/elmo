@@ -1,19 +1,19 @@
 mod elos;
+use chrono::{DateTime, Local, Utc};
 use ratatui::crossterm::event::{self, KeyCode};
 use ratatui::layout::{Constraint, Rect};
 use ratatui::style::Style;
-use ratatui::text::Span;
-use ratatui::widgets::{List, Paragraph, Row, Table};
+use ratatui::widgets::{Row, Table, TableState};
 use ratatui::DefaultTerminal;
 use ratatui::Frame;
 use std::time::Duration;
-use chrono::{DateTime, NaiveDateTime, Utc};
 
 fn main() {
     let _ = ratatui::run(run);
 }
 
 fn run(terminal: &mut DefaultTerminal) -> () {
+    let mut table_state = TableState::default();
     let mut rows = vec![];
     let mut elos = match elos::Elos::connect() {
         Ok(elos) => elos,
@@ -38,21 +38,40 @@ fn run(terminal: &mut DefaultTerminal) -> () {
         Err(e) => panic!("failed receive: {}", e),
     }
 
-    match elos.subscribe(&"1 1 EQ".to_string()) {
+    match elos.subscribe(&".e.classification 256 NE".to_string()) {
         Ok(_) => (),
         Err(e) => panic!("failed to subscribe: {}", e),
     }
 
+    match elos.find_events(&"1 1 EQ".to_string()) {
+        Ok(events) => events.iter().for_each(|ev| {
+            // println!("--> {}", ev);
+
+            rows.push(Row::new([
+                format_severity(ev.severity),
+                format!("{:?}", ev.messageCode),
+                format_timespec(ev.date),
+                format!("{:?}", ev.payload),
+            ]))
+        }),
+        Err(e) => panic!("failed to fetch historical events: {}", e),
+    }
+
     loop {
-        let _ = terminal.draw(|frame| render(frame, &mut elos, &mut rows));
+        let _ = terminal.draw(|frame| render(frame, &mut elos, &mut rows, &mut table_state));
 
         if event::poll(Duration::from_millis(250)).unwrap() {
             match event::read().unwrap() {
-                event::Event::Key(event) => {
-                    if event.code == KeyCode::Char('q') {
-                        break;
-                    }
-                }
+                event::Event::Key(event) => match event.code {
+                    KeyCode::Char('q') => break,
+                    KeyCode::Char('j') | KeyCode::Down => table_state.select_next(),
+                    KeyCode::Char('k') | KeyCode::Up => table_state.select_previous(),
+                    KeyCode::Char('l') | KeyCode::Right => table_state.select_next_column(),
+                    KeyCode::Char('h') | KeyCode::Left => table_state.select_previous_column(),
+                    KeyCode::Char('g') | KeyCode::Home => table_state.select_first(),
+                    KeyCode::Char('G') | KeyCode::End => table_state.select_last(),
+                    _ => {}
+                },
                 event => {
                     println!("event {:?}", event)
                 }
@@ -64,14 +83,20 @@ fn run(terminal: &mut DefaultTerminal) -> () {
     ()
 }
 
-fn render(frame: &mut Frame, elos: &mut elos::Elos, rows: &mut Vec<Row>) {
-    let header = Row::new(["Severity", "Date", "Source", "payload"]).style(Style::new().bold());
+fn render(
+    frame: &mut Frame,
+    elos: &mut elos::Elos,
+    rows: &mut Vec<Row>,
+    table_state: &mut TableState,
+) {
+    let header =
+        Row::new(["Severity", "Message Code", "Date", "payload"]).style(Style::new().bold());
 
     elos.read_event_queue(*elos.subscribtions().get(0).unwrap())
         .map(|events| {
             events.iter().for_each(|ev| {
                 rows.push(Row::new([
-                    format_severity( ev.severity),
+                    format_severity(ev.severity),
                     format!("{:?}", ev.messageCode),
                     format_timespec(ev.date),
                     format!("{:?}", ev.payload),
@@ -92,9 +117,10 @@ fn render(frame: &mut Frame, elos: &mut elos::Elos, rows: &mut Vec<Row>) {
 
     let table = Table::new(rows_sorted, widths)
         .header(header)
-        .footer(footer);
+        .footer(footer)
+        .row_highlight_style(Style::new().on_black().bold());
 
-    frame.render_widget(
+    frame.render_stateful_widget(
         table,
         Rect {
             x: frame.area().x,
@@ -102,6 +128,7 @@ fn render(frame: &mut Frame, elos: &mut elos::Elos, rows: &mut Vec<Row>) {
             width: frame.area().width,
             height: frame.area().height,
         },
+        table_state,
     );
 }
 
@@ -117,11 +144,10 @@ fn format_severity(severity: Option<u32>) -> String {
     }
 }
 
-
-fn format_timespec(ts: [u32;2]) -> String {
-    let naive = NaiveDateTime::from_timestamp_opt(ts[0]as i64, ts[1] as u32)
-        .expect("invalid timestamp");
-    let dt: DateTime<Utc> = DateTime::from_utc(naive, Utc);
-    dt.format("%Y-%m-%d %H:%M:%S%.f UTC").to_string()
+fn format_timespec(ts: [u32; 2]) -> String {
+    DateTime::<Utc>::from_timestamp(ts[0] as i64, ts[1] / 100)
+        .unwrap()
+        .with_timezone(&Local)
+        .format("%Y-%m-%d %H:%M:%S%.3f")
+        .to_string()
 }
-

@@ -44,6 +44,13 @@ struct ReadEventQueueResponse {
     eventArray: Vec<Event>,
 }
 
+#[derive(Deserialize)]
+struct LogFindEventResponse {
+    error: Option<String>,
+    eventArray: Vec<Event>,
+    isTruncated: Option<bool>,
+}
+
 impl fmt::Display for Event {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
@@ -106,6 +113,34 @@ impl Elos {
                     }
                 }
             })?
+        })?
+    }
+
+    pub fn find_events(&mut self, filter: &String) -> Result<Vec<Event>> {
+        let request = json!({
+            "filter": filter,
+        });
+        let message = Message {
+            version: 0x01,
+            command: 0x04,
+            length: 0,
+            data: request.to_string().into_bytes(),
+        };
+        self.send(&message)?;
+        self.receive().map(|response| {
+            let json_string: String = String::from_utf8(response.data).unwrap().to_owned();
+            #[cfg(elos_debug)]
+            println!("find event : {}", json_string);
+            serde_json::from_str(&json_string).map(
+                |log_find_event_response: LogFindEventResponse| match log_find_event_response.error
+                {
+                    Some(error) => Err(std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        format!("Protocol error: {}", error),
+                    )),
+                    None => Ok(log_find_event_response.eventArray),
+                },
+            )?
         })?
     }
 
