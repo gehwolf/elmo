@@ -120,28 +120,41 @@ impl Elos {
         let request = json!({
             "filter": filter,
         });
-        let message = Message {
+        let mut message = Message {
             version: 0x01,
             command: 0x04,
             length: 0,
             data: request.to_string().into_bytes(),
         };
-        self.send(&message)?;
-        self.receive().map(|response| {
+        let mut events: Vec<Event> = vec![];
+
+        loop {
+            self.send(&message)?;
+            let response = self.receive()?;
             let json_string: String = String::from_utf8(response.data).unwrap().to_owned();
             #[cfg(elos_debug)]
             println!("find event : {}", json_string);
-            serde_json::from_str(&json_string).map(
-                |log_find_event_response: LogFindEventResponse| match log_find_event_response.error
-                {
-                    Some(error) => Err(std::io::Error::new(
-                        std::io::ErrorKind::Other,
-                        format!("Protocol error: {}", error),
-                    )),
-                    None => Ok(log_find_event_response.eventArray),
-                },
-            )?
-        })?
+
+            let mut log_find_event_response: LogFindEventResponse =
+                serde_json::from_str(&json_string).expect("invalid json response");
+
+            match log_find_event_response.error {
+                Some(error) => return Err(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("Protocol error: {}", error),
+                )),
+                _ => {
+                    events.append(&mut log_find_event_response.eventArray);
+                    match log_find_event_response.isTruncated {
+                        Some(false)| _ => break,
+                        Some(true) => {
+                            message.data = json!({"filter":filter, "oldest": events.last().unwrap().date}).to_string().into_bytes();
+                        }
+                    }
+                }
+            };
+        }
+        Ok(events)
     }
 
     pub fn read_event_queue(&mut self, event_queue_id: u64) -> Result<Vec<Event>> {
