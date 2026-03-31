@@ -12,85 +12,101 @@ use std::time::Duration;
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
-    #[arg(short, long, default_value="localhost:54321")]
+    #[arg(short, long, default_value = "localhost:54321")]
     connection: String,
 }
 
-fn main() {
-    let args = Args::parse();
-
-    let _ = ratatui::run(|terminal| run(terminal, args));
+struct App {
+    args: Args,
+    table_state: TableState,
 }
 
-fn run(terminal: &mut DefaultTerminal, args: Args) -> () {
-    let mut table_state = TableState::default();
-    let mut rows = vec![];
-    let mut elos = match elos::Elos::connect_with(args.connection) {
-        Ok(elos) => elos,
-        Err(e) => {
-            panic!("Failed to connect: {}", e);
+fn main() {
+    let _ = ratatui::run(|terminal| App::new().run(terminal));
+}
+
+impl App {
+    fn new() -> Self {
+        Self {
+            args: Args::parse(),
+            table_state: TableState::default(),
         }
-    };
-
-    let result = elos.send(&elos::Message {
-        version: 0x1,
-        command: 0x1,
-        length: 0,
-        data: vec![],
-    });
-    match result {
-        Ok(_) => (),
-        Err(e) => panic!("failed to send: {}", e),
     }
 
-    match elos.receive() {
-        Ok(msg) => (),
-        Err(e) => panic!("failed receive: {}", e),
-    }
+    fn run(mut self, terminal: &mut DefaultTerminal) -> () {
+        let mut rows = vec![];
+        let mut elos = match elos::Elos::connect_with(self.args.connection) {
+            Ok(elos) => elos,
+            Err(e) => {
+                panic!("Failed to connect: {}", e);
+            }
+        };
 
-    match elos.subscribe(&".e.classification 256 NE".to_string()) {
-        Ok(_) => (),
-        Err(e) => panic!("failed to subscribe: {}", e),
-    }
+        let result = elos.send(&elos::Message {
+            version: 0x1,
+            command: 0x1,
+            length: 0,
+            data: vec![],
+        });
+        match result {
+            Ok(_) => (),
+            Err(e) => panic!("failed to send: {}", e),
+        }
 
-    match elos.find_events(&"1 1 EQ".to_string()) {
-        Ok(events) => events.iter().for_each(|ev| {
-            // println!("--> {}", ev);
+        match elos.receive() {
+            Ok(msg) => (),
+            Err(e) => panic!("failed receive: {}", e),
+        }
 
-            rows.push(Row::new([
-                format_severity(ev.severity),
-                format!("{:?}", ev.messageCode),
-                format_timespec(ev.date),
-                format!("{:?}", ev.payload),
-            ]))
-        }),
-        Err(e) => panic!("failed to fetch historical events: {}", e),
-    }
+        match elos.subscribe(&".e.classification 256 NE".to_string()) {
+            Ok(_) => (),
+            Err(e) => panic!("failed to subscribe: {}", e),
+        }
 
-    loop {
-        let _ = terminal.draw(|frame| render(frame, &mut elos, &mut rows, &mut table_state));
+        match elos.find_events(&"1 1 EQ".to_string()) {
+            Ok(events) => events.iter().for_each(|ev| {
+                // println!("--> {}", ev);
 
-        if event::poll(Duration::from_millis(250)).unwrap() {
-            match event::read().unwrap() {
-                event::Event::Key(event) => match event.code {
-                    KeyCode::Char('q') => break,
-                    KeyCode::Char('j') | KeyCode::Down => table_state.select_next(),
-                    KeyCode::Char('k') | KeyCode::Up => table_state.select_previous(),
-                    KeyCode::Char('l') | KeyCode::Right => table_state.select_next_column(),
-                    KeyCode::Char('h') | KeyCode::Left => table_state.select_previous_column(),
-                    KeyCode::Char('g') | KeyCode::Home => table_state.select_first(),
-                    KeyCode::Char('G') | KeyCode::End => table_state.select_last(),
-                    _ => {}
-                },
-                event => {
-                    println!("event {:?}", event)
+                rows.push(Row::new([
+                    format_severity(ev.severity),
+                    format!("{:?}", ev.messageCode),
+                    format_timespec(ev.date),
+                    format!("{:?}", ev.payload),
+                ]))
+            }),
+            Err(e) => panic!("failed to fetch historical events: {}", e),
+        }
+
+        loop {
+            let _ =
+                terminal.draw(|frame| render(frame, &mut elos, &mut rows, &mut self.table_state));
+
+            if event::poll(Duration::from_millis(250)).unwrap() {
+                match event::read().unwrap() {
+                    event::Event::Key(event) => match event.code {
+                        KeyCode::Char('q') => break,
+                        KeyCode::Char('j') | KeyCode::Down => self.table_state.select_next(),
+                        KeyCode::Char('k') | KeyCode::Up => self.table_state.select_previous(),
+                        KeyCode::Char('l') | KeyCode::Right => {
+                            self.table_state.select_next_column()
+                        }
+                        KeyCode::Char('h') | KeyCode::Left => {
+                            self.table_state.select_previous_column()
+                        }
+                        KeyCode::Char('g') | KeyCode::Home => self.table_state.select_first(),
+                        KeyCode::Char('G') | KeyCode::End => self.table_state.select_last(),
+                        _ => {}
+                    },
+                    event => {
+                        println!("event {:?}", event)
+                    }
                 }
             }
         }
-    }
-    let _ = elos.disconnect();
+        let _ = elos.disconnect();
 
-    ()
+        ()
+    }
 }
 
 fn render(
