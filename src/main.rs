@@ -1,5 +1,6 @@
 mod elos;
 use chrono::{DateTime, Local, Utc};
+use clap::Parser;
 use ratatui::crossterm::event::{self, KeyCode};
 use ratatui::layout::{Constraint, Rect};
 use ratatui::style::Style;
@@ -8,14 +9,23 @@ use ratatui::DefaultTerminal;
 use ratatui::Frame;
 use std::time::Duration;
 
-fn main() {
-    let _ = ratatui::run(run);
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    #[arg(short, long, default_value="localhost:54321")]
+    connection: String,
 }
 
-fn run(terminal: &mut DefaultTerminal) -> () {
+fn main() {
+    let args = Args::parse();
+
+    let _ = ratatui::run(|terminal| run(terminal, args));
+}
+
+fn run(terminal: &mut DefaultTerminal, args: Args) -> () {
     let mut table_state = TableState::default();
     let mut rows = vec![];
-    let mut elos = match elos::Elos::connect() {
+    let mut elos = match elos::Elos::connect_with(args.connection) {
         Ok(elos) => elos,
         Err(e) => {
             panic!("Failed to connect: {}", e);

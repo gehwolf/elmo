@@ -67,7 +67,11 @@ impl fmt::Display for Event {
 
 impl Elos {
     pub fn connect() -> Result<Elos> {
-        TcpStream::connect("localhost:54321").map(|stream| Elos {
+        Elos::connect_with("localhost:54321".to_string())
+    }
+
+    pub fn connect_with(connection: String) -> Result<Elos> {
+        TcpStream::connect(connection).map(|stream| Elos {
             stream,
             subscribtions: vec![],
         })
