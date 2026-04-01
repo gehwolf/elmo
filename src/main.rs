@@ -164,7 +164,7 @@ fn format_severity(severity: Option<u32>) -> String {
         Some(2) => "❌".to_string(),
         Some(3) => "⚠️".to_string(),
         Some(4) => "💡".to_string(),
-        Some(5) => "🐛".to_string(),
+        Some(5) => "🐛🪲".to_string(),
         Some(6) => "🗣".to_string(),
         _ => "".to_string(),
     }
