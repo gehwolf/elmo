@@ -170,8 +170,8 @@ fn format_severity(severity: Option<u32>) -> String {
     }
 }
 
-fn format_timespec(ts: [u32; 2]) -> String {
-    DateTime::<Utc>::from_timestamp(ts[0] as i64, ts[1] / 100)
+fn format_timespec(ts: [i64; 2]) -> String {
+    DateTime::<Utc>::from_timestamp(ts[0] as i64, ts[1] as u32 / 100)
         .unwrap()
         .with_timezone(&Local)
         .format("%Y-%m-%d %H:%M:%S%.3f")

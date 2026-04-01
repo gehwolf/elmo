@@ -13,7 +13,7 @@ pub struct Elos {
 
 #[derive(Serialize, Deserialize)]
 pub struct Event {
-    pub date: [u32; 2],
+    pub date: [i64; 2],
     pub messageCode: Option<u32>,
     pub classification: Option<u64>,
     pub severity: Option<u32>,
