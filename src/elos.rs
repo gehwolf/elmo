@@ -1,4 +1,5 @@
 use byteorder::{NetworkEndian, ReadBytesExt};
+use chrono::{format, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::fmt;
@@ -13,6 +14,7 @@ pub struct Elos {
 
 #[derive(Serialize, Deserialize)]
 pub struct Event {
+    #[serde(default = "default_event_date")]
     pub date: [i64; 2],
     pub messageCode: Option<u32>,
     pub classification: Option<u64>,
@@ -20,6 +22,12 @@ pub struct Event {
     pub payload: Option<String>,
 }
 
+fn default_event_date() -> [i64; 2] {
+    let now = Utc::now();
+    [now.timestamp(), now.timestamp_subsec_nanos() as i64]
+}
+
+#[derive(Debug)]
 pub struct Message {
     pub version: u8,
     pub command: u8,
