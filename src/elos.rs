@@ -181,20 +181,27 @@ impl Elos {
         };
         self.send(&message)?;
         self.receive().map(|response| {
-            let json_string: String = String::from_utf8(response.data).unwrap().to_owned();
-            #[cfg(elos_debug)]
-            println!("read event queue : {}", json_string);
-            serde_json::from_str(&json_string).map(
-                |read_event_queue_response: ReadEventQueueResponse| match read_event_queue_response
-                    .error
-                {
-                    Some(error) => Err(std::io::Error::new(
-                        std::io::ErrorKind::Other,
-                        format!("Protocol error: {}", error),
-                    )),
-                    None => Ok(read_event_queue_response.eventArray),
-                },
-            )?
+            if response.length != 0 {
+                let json_string: String = String::from_utf8(response.data.clone())
+                    .expect(&format!("{:?}", response.data))
+                    .to_owned();
+                #[cfg(elos_debug)]
+                println!("read event queue : {}", json_string);
+                serde_json::from_str(&json_string).map(
+                    |read_event_queue_response: ReadEventQueueResponse| {
+                        match read_event_queue_response.error {
+                            Some(error) => Err(std::io::Error::new(
+                                std::io::ErrorKind::Other,
+                                format!("Protocol error: {}", error),
+                            )),
+                            None => Ok(read_event_queue_response.eventArray),
+                        }
+                    },
+                )?
+            } else {
+                println!("{:?}", response);
+                Ok(vec![])
+            }
         })?
     }
 
