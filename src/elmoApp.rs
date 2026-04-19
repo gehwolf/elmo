@@ -1,8 +1,10 @@
 use ratatui::crossterm::event::{self, KeyCode};
-use ratatui::widgets::{Block, Borders};
+use ratatui::layout::Rect;
+use ratatui::widgets::{Block, Borders, Clear};
 use ratatui::{
     layout::Constraint,
     style::Style,
+    text::Text,
     widgets::{Row, StatefulWidget, Table, TableState, Widget},
     DefaultTerminal,
 };
@@ -45,7 +47,7 @@ impl<'a> StatefulWidget for ElmoApp<'a> {
             .render(area, buf, &mut state.event_table_state);
         if state.event_details_state.visible {
             self.event_details.render(
-                area.centered(Constraint::Percentage(20), Constraint::Length(3)),
+                area.centered(Constraint::Percentage(50), Constraint::Percentage(40)),
                 buf,
                 &mut state.event_details_state,
             );
@@ -115,8 +117,9 @@ impl<'a> ElmoApp<'a> {
                         }
                         KeyCode::Enter => {
                             if state.event_details_state.visible == false {
-                                let selected = state.event_table_state.table_state.selected();
+                                let selected = state.event_table_state.table_state.selected().unwrap();
 
+                                state.event_details_state.event = format!("index: {}",selected.to_string());
                                 state.event_details_state.visible = true;
                             }
 
@@ -201,16 +204,17 @@ impl StatefulWidget for EventDetails {
         buf: &mut ratatui::prelude::Buffer,
         state: &mut Self::State,
     ) {
-        let mut event_popup = Block::bordered().title("Event Details");
+        let event_popup = Block::bordered().title("Event Details");
+        Widget::render(Clear, area, buf);
         event_popup.render(area, buf);
-        // Text::from(state.event).render(
-        //     Rect {
-        //         x: area.x + 2,
-        //         y: area.y + 2,
-        //         width: area.width - 4,
-        //         height: 10,
-        //     },
-        //     buf,
-        // );
+        Text::from(state.event.clone()).render(
+            Rect {
+                x: area.x + 2,
+                y: area.y + 1,
+                width: area.width - 4,
+                height: 2,
+            },
+            buf,
+        );
     }
 }
