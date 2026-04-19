@@ -1,6 +1,9 @@
+mod elmoApp;
 mod elos;
+
 use chrono::{DateTime, Local, Utc};
 use clap::Parser;
+use elmoApp::ElmoApp;
 use ratatui::crossterm::event::{self, KeyCode};
 use ratatui::layout::{Constraint, Rect};
 use ratatui::style::Style;
@@ -8,6 +11,7 @@ use ratatui::widgets::{Row, Table, TableState};
 use ratatui::DefaultTerminal;
 use ratatui::Frame;
 use std::time::Duration;
+
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -22,7 +26,8 @@ struct App {
 }
 
 fn main() {
-    let _ = ratatui::run(|terminal| App::new().run(terminal));
+    // let _ = ratatui::run(|terminal| App::new().run(terminal));
+    let _ = ratatui::run(ElmoApp::run);
 }
 
 impl App {
