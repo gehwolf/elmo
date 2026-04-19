@@ -1,9 +1,9 @@
 use ratatui::crossterm::event::{self, KeyCode};
-use ratatui::text::ToText;
+use ratatui::widgets::{Block, Borders};
 use ratatui::{
     layout::Constraint,
     style::Style,
-    widgets::{Row, StatefulWidget, Table, TableState},
+    widgets::{Row, StatefulWidget, Table, TableState, Widget},
     DefaultTerminal,
 };
 use std::time::Duration;
@@ -11,12 +11,14 @@ use std::time::Duration;
 #[derive(Debug)]
 pub struct ElmoApp<'a> {
     event_table: EventTable<'a>,
+    event_details: EventDetails,
 }
 
 #[derive(Debug)]
 pub struct ElmoState<'a> {
     count: usize,
     event_table_state: EventTableState<'a>,
+    event_details_state: EventDetailsState,
 }
 
 impl<'a> ElmoApp<'a> {
@@ -25,6 +27,7 @@ impl<'a> ElmoApp<'a> {
             event_table: EventTable {
                 saticfy_rustc: Row::new([""]),
             },
+            event_details: EventDetails {},
         }
     }
 }
@@ -40,6 +43,13 @@ impl<'a> StatefulWidget for ElmoApp<'a> {
     ) {
         self.event_table
             .render(area, buf, &mut state.event_table_state);
+        if state.event_details_state.visible {
+            self.event_details.render(
+                area.centered(Constraint::Percentage(20), Constraint::Length(3)),
+                buf,
+                &mut state.event_details_state,
+            );
+        }
     }
 }
 
@@ -50,6 +60,10 @@ impl<'a> ElmoApp<'a> {
             event_table_state: EventTableState {
                 table_state: TableState::default(),
                 rows: vec![],
+            },
+            event_details_state: EventDetailsState {
+                event: "N/A".to_string(),
+                visible: false,
             },
         };
 
@@ -72,7 +86,13 @@ impl<'a> ElmoApp<'a> {
             if event::poll(Duration::from_millis(250)).unwrap() {
                 match event::read().unwrap() {
                     event::Event::Key(event) => match event.code {
-                        KeyCode::Char('q') => break,
+                        KeyCode::Char('q') => {
+                            if state.event_details_state.visible == true {
+                                state.event_details_state.visible = false
+                            } else {
+                                break;
+                            }
+                        }
                         KeyCode::Char('j') | KeyCode::Down => {
                             state.event_table_state.table_state.select_next()
                         }
@@ -92,6 +112,15 @@ impl<'a> ElmoApp<'a> {
                         }
                         KeyCode::Char('G') | KeyCode::End => {
                             state.event_table_state.table_state.select_last()
+                        }
+                        KeyCode::Enter => {
+                            if state.event_details_state.visible == false {
+                                let selected = state.event_table_state.table_state.selected();
+
+                                state.event_details_state.visible = true;
+                            }
+
+                            ()
                         }
                         _ => {}
                     },
@@ -150,6 +179,38 @@ impl<'a> StatefulWidget for EventTable<'a> {
             .footer(footer)
             .row_highlight_style(Style::new().on_black().bold());
 
-        table.render(area, buf, &mut state.table_state);
+        StatefulWidget::render(table, area, buf, &mut state.table_state);
+    }
+}
+
+#[derive(Debug)]
+struct EventDetails {}
+
+#[derive(Debug)]
+struct EventDetailsState {
+    event: String,
+    visible: bool,
+}
+
+impl StatefulWidget for EventDetails {
+    type State = EventDetailsState;
+
+    fn render(
+        self,
+        area: ratatui::prelude::Rect,
+        buf: &mut ratatui::prelude::Buffer,
+        state: &mut Self::State,
+    ) {
+        let mut event_popup = Block::bordered().title("Event Details");
+        event_popup.render(area, buf);
+        // Text::from(state.event).render(
+        //     Rect {
+        //         x: area.x + 2,
+        //         y: area.y + 2,
+        //         width: area.width - 4,
+        //         height: 10,
+        //     },
+        //     buf,
+        // );
     }
 }
