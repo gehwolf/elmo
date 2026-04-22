@@ -1,3 +1,4 @@
+use chrono::{DateTime, Local, Utc};
 use ratatui::crossterm::event::{self, KeyCode};
 use ratatui::layout::Rect;
 use ratatui::widgets::{Block, Borders, Clear};
@@ -9,6 +10,8 @@ use ratatui::{
     DefaultTerminal,
 };
 use std::time::Duration;
+
+use crate::elos;
 
 #[derive(Debug)]
 pub struct ElmoApp<'a> {
@@ -56,7 +59,7 @@ impl<'a> StatefulWidget for ElmoApp<'a> {
 }
 
 impl<'a> ElmoApp<'a> {
-    pub fn run(terminal: &mut DefaultTerminal) -> () {
+    pub fn run(connection: &String, terminal: &mut DefaultTerminal) -> () {
         let mut state = ElmoState {
             count: 42,
             event_table_state: EventTableState {
@@ -69,17 +72,59 @@ impl<'a> ElmoApp<'a> {
             },
         };
 
-        loop {
-            if state.count % 6 == 0 {
-                state.event_table_state.add_row([
-                    state.count.to_string(),
-                    "A".to_string(),
-                    "B".to_string(),
-                    "C".to_string(),
-                    "D".to_string(),
-                ]);
+        let mut elos = match elos::Elos::connect_with(connection.clone()) {
+            Ok(elos) => elos,
+            Err(e) => {
+                panic!("Failed to connect: {}", e);
             }
-            state.count = state.count + 1;
+        };
+
+        let result = elos.send(&elos::Message {
+            version: 0x1,
+            command: 0x1,
+            length: 0,
+            data: vec![],
+        });
+        match result {
+            Ok(_) => (),
+            Err(e) => panic!("failed to send: {}", e),
+        }
+
+        match elos.receive() {
+            Ok(msg) => (),
+            Err(e) => panic!("failed receive: {}", e),
+        }
+
+        match elos.subscribe(&".e.classification 256 NE".to_string()) {
+            Ok(_) => (),
+            Err(e) => panic!("failed to subscribe: {}", e),
+        }
+
+        match elos.find_events(&"1 1 EQ".to_string()) {
+            Ok(events) => events.iter().for_each(|ev| {
+                state.event_table_state.rows.push(Row::new([
+                    format_severity(ev.severity),
+                    ev.messageCode.unwrap_or(0).to_string(),
+                    format_timespec(ev.date),
+                    ev.payload.clone().unwrap_or("".to_string()),
+                ]))
+            }),
+            Err(e) => panic!("failed to fetch historical events: {}", e),
+        }
+
+        loop {
+            elos.read_event_queue(*elos.subscribtions().get(0).unwrap())
+                .map(|events| {
+                    events.iter().for_each(|ev| {
+                        state.event_table_state.rows.push(Row::new([
+                            format_severity(ev.severity),
+                            ev.messageCode.unwrap_or(0).to_string(),
+                            format_timespec(ev.date),
+                            ev.payload.clone().unwrap_or("".to_string()),
+                        ]))
+                    });
+                })
+                .unwrap();
             terminal
                 .draw(|frame| {
                     frame.render_stateful_widget(ElmoApp::new(), frame.area(), &mut state)
@@ -117,9 +162,11 @@ impl<'a> ElmoApp<'a> {
                         }
                         KeyCode::Enter => {
                             if state.event_details_state.visible == false {
-                                let selected = state.event_table_state.table_state.selected().unwrap();
+                                let selected =
+                                    state.event_table_state.table_state.selected().unwrap();
 
-                                state.event_details_state.event = format!("index: {}",selected.to_string());
+                                state.event_details_state.event =
+                                    format!("index: {}", selected.to_string());
                                 state.event_details_state.visible = true;
                             }
 
@@ -217,4 +264,35 @@ impl StatefulWidget for EventDetails {
             buf,
         );
     }
+}
+
+fn format_severity(severity: Option<u32>) -> String {
+    match severity {
+        Some(1) => "☠".to_string(),
+        Some(2) => "❌".to_string(),
+        Some(3) => "⚠️".to_string(),
+        Some(4) => "💡".to_string(),
+        Some(5) => "🐛🪲".to_string(),
+        Some(6) => "🗣".to_string(),
+        _ => "".to_string(),
+    }
+}
+
+fn format_timespec(ts: [i64; 2]) -> String {
+    match DateTime::<Utc>::from_timestamp(ts[0] as i64, ts[1] as u32 / 100) {
+        Some(date) => date
+            .with_timezone(&Local)
+            .format("%Y-%m-%d %H:%M:%S%.3f")
+            .to_string(),
+        None => "n/a".to_string(),
+    }
+}
+
+fn event_to_row(event: &elos::Event) -> Row {
+    Row::new([
+        format_severity(event.severity),
+        event.messageCode.unwrap_or(0).to_string(),
+        format_timespec(event.date),
+        event.payload.clone().unwrap_or("".to_string()),
+    ])
 }
