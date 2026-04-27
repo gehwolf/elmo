@@ -21,7 +21,6 @@ pub struct ElmoApp<'a> {
 
 #[derive(Debug)]
 pub struct ElmoState<'a> {
-    count: usize,
     event_table_state: EventTableState<'a>,
     event_details_state: EventDetailsState,
 }
@@ -61,7 +60,6 @@ impl<'a> StatefulWidget for ElmoApp<'a> {
 impl<'a> ElmoApp<'a> {
     pub fn run(connection: &String, terminal: &mut DefaultTerminal) -> () {
         let mut state = ElmoState {
-            count: 42,
             event_table_state: EventTableState {
                 table_state: TableState::default(),
                 rows: vec![],
@@ -78,22 +76,6 @@ impl<'a> ElmoApp<'a> {
                 panic!("Failed to connect: {}", e);
             }
         };
-
-        let result = elos.send(&elos::Message {
-            version: 0x1,
-            command: 0x1,
-            length: 0,
-            data: vec![],
-        });
-        match result {
-            Ok(_) => (),
-            Err(e) => panic!("failed to send: {}", e),
-        }
-
-        match elos.receive() {
-            Ok(msg) => (),
-            Err(e) => panic!("failed receive: {}", e),
-        }
 
         match elos.subscribe(&".e.classification 256 NE".to_string()) {
             Ok(_) => (),
@@ -272,7 +254,7 @@ fn format_severity(severity: Option<u32>) -> String {
         Some(2) => "❌".to_string(),
         Some(3) => "⚠️".to_string(),
         Some(4) => "💡".to_string(),
-        Some(5) => "🐛🪲".to_string(),
+        Some(5) => "🪲".to_string(),
         Some(6) => "🗣".to_string(),
         _ => "".to_string(),
     }
